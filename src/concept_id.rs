@@ -32,7 +32,9 @@ impl ConceptId {
     /// Builds a concept id from segments, validating each.
     pub fn new(segments: Vec<String>) -> Result<Self, ConceptIdError> {
         if segments.is_empty() {
-            return Err(ConceptIdError("concept_id must have at least one segment".into()));
+            return Err(ConceptIdError(
+                "concept_id must have at least one segment".into(),
+            ));
         }
         for seg in &segments {
             validate_segment(seg)?;
@@ -44,7 +46,11 @@ impl ConceptId {
     /// dropped (so leading/trailing/duplicate slashes are tolerated), matching
     /// the reference `parse_concept_id`.
     pub fn parse(s: &str) -> Result<Self, ConceptIdError> {
-        let segments: Vec<String> = s.split('/').filter(|p| !p.is_empty()).map(String::from).collect();
+        let segments: Vec<String> = s
+            .split('/')
+            .filter(|p| !p.is_empty())
+            .map(String::from)
+            .collect();
         if segments.is_empty() {
             return Err(ConceptIdError(format!("Empty concept id: {s:?}")));
         }
@@ -119,18 +125,38 @@ impl std::str::FromStr for ConceptId {
     }
 }
 
-/// Validates a single path segment against the reference rule
-/// `[A-Za-z0-9_][A-Za-z0-9_.\-]*`.
+/// Validates a single path segment.
+///
+/// Widens the reference rule `[A-Za-z0-9_][A-Za-z0-9_.\-]*` to a **denylist**:
+/// any character is allowed *except* ones that break file paths or round-tripping
+/// — control characters, the path separators `/` and `\`, and the Windows-reserved
+/// set `: * ? " < > |`. This lets concepts live in files named with emoji
+/// (`🚀 Launch.md`), accents (`café.md`), or CJK (`设计.md`). A segment may not
+/// *begin* with `.` or `-` (hidden-file / option-like names) and may not begin or
+/// end with a space (leading/trailing spaces do not survive most filesystems and
+/// break round-tripping); a leading emoji or letter is fine.
 pub fn validate_segment(seg: &str) -> Result<(), ConceptIdError> {
+    let invalid = || ConceptIdError(format!("Invalid concept id segment: {seg:?}"));
     let mut chars = seg.chars();
     match chars.next() {
-        Some(c) if c.is_ascii_alphanumeric() || c == '_' => {}
-        _ => return Err(ConceptIdError(format!("Invalid concept id segment: {seg:?}"))),
+        // First character: passes the denylist and isn't a leading `.`/`-`/space.
+        Some(c) if !is_forbidden(c) && c != '.' && c != '-' && c != ' ' => {}
+        _ => return Err(invalid()),
     }
     for c in chars {
-        if !(c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-') {
-            return Err(ConceptIdError(format!("Invalid concept id segment: {seg:?}")));
+        if is_forbidden(c) {
+            return Err(invalid());
         }
     }
+    if seg.ends_with(' ') {
+        return Err(invalid());
+    }
     Ok(())
+}
+
+/// Characters never allowed in a concept-id segment: control characters, path
+/// separators, and the Windows-reserved set. Everything else — letters, digits,
+/// `_`/`.`/`-`, spaces, emoji, accents, CJK — is permitted.
+fn is_forbidden(c: char) -> bool {
+    c.is_control() || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
 }

@@ -96,6 +96,30 @@ fn strip_anchor(target: &str) -> &str {
     }
 }
 
+/// Percent-decodes a single path component (e.g. `Quarterly%20Report` →
+/// `Quarterly Report`), so links that encode spaces the canonical markdown way
+/// resolve to the concept whose filename contains a literal space. Malformed or
+/// incomplete `%` escapes are left untouched.
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            let hi = (bytes[i + 1] as char).to_digit(16);
+            let lo = (bytes[i + 2] as char).to_digit(16);
+            if let (Some(h), Some(l)) = (hi, lo) {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 fn resolve_absolute(target: &str) -> Option<ConceptId> {
     let t = strip_anchor(target);
     if t.ends_with('/') {
@@ -110,7 +134,7 @@ fn resolve_absolute(target: &str) -> Option<ConceptId> {
             ".." => {
                 segs.pop();
             }
-            other => segs.push(other.to_string()),
+            other => segs.push(percent_decode(other)),
         }
     }
     if let Some(last) = segs.last_mut() {
@@ -137,7 +161,7 @@ fn resolve_relative(target: &str, source: &ConceptId) -> Option<ConceptId> {
             ".." => {
                 segs.pop();
             }
-            other => segs.push(other.to_string()),
+            other => segs.push(percent_decode(other)),
         }
     }
     if let Some(last) = segs.last_mut() {

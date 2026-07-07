@@ -64,6 +64,17 @@ tests adapted from the reference test suite.
   what §9 requires (a non-empty `type`). `Document::validate()` matches the
   stricter producer-side check from the reference agent (`type`, `title`,
   `description`, `timestamp`).
+- **Spaces, emoji, and Unicode in file names.** This fork widens the reference
+  concept-id segment rule (`[A-Za-z0-9_][A-Za-z0-9_.\-]*`) to a **denylist**: any
+  character is allowed except ones that break paths or round-tripping — control
+  characters, the separators `/` and `\`, and the Windows-reserved set
+  (`: * ? " < > |`). So a concept may live in a file named `Quarterly Report.md`,
+  `🚀 Launch.md`, `café.md`, or `设计.md`. A segment may not begin with `.` or `-`,
+  and may not begin or end with a space (a leading emoji or letter is fine).
+  Cross-links to such concepts work whether written with a literal name
+  (`[x](<./Quarterly Report.md>)`) or the canonical percent-encoded form
+  (`[x](/reports/Quarterly%20Report.md)`, `[x](/Q1%20%F0%9F%9A%80%20Launch.md)`);
+  generated `index.md` links percent-encode spaces so they stay valid markdown.
 - **A documented YAML subset.** Real OKF frontmatter is scalars, lists, and
   shallow maps. The parser handles block/flow collections, quoted/plain
   scalars, `|`/`>` block scalars, and comments; it rejects (with a clear error)
