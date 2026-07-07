@@ -16,6 +16,15 @@ use std::path::{Path, PathBuf};
 
 const INDEX_FILE: &str = "index.md";
 
+/// Percent-encodes a filename for use as a markdown link destination. Spaces are
+/// the only character permitted in a concept-id segment that would otherwise
+/// break an unbracketed `(dest)` link, so encoding them to `%20` is sufficient
+/// to keep generated links valid (and they round-trip through link resolution,
+/// which percent-decodes them).
+fn encode_link_component(name: &str) -> String {
+    name.replace(' ', "%20")
+}
+
 /// One row in a generated index, mirroring the reference's
 /// `(type, title, relative_link, description)` tuple.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -139,7 +148,7 @@ pub fn regenerate_indexes_with(
                 entries.push(IndexEntry {
                     type_,
                     title,
-                    link: name,
+                    link: encode_link_component(&name),
                     description,
                 });
             } else if child.is_dir() {
@@ -147,7 +156,7 @@ pub fn regenerate_indexes_with(
                 entries.push(IndexEntry {
                     type_: "Subdirectories".to_string(),
                     title: name.clone(),
-                    link: format!("{name}/{INDEX_FILE}"),
+                    link: format!("{}/{INDEX_FILE}", encode_link_component(&name)),
                     description,
                 });
             }

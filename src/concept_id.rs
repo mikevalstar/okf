@@ -119,8 +119,14 @@ impl std::str::FromStr for ConceptId {
     }
 }
 
-/// Validates a single path segment against the reference rule
-/// `[A-Za-z0-9_][A-Za-z0-9_.\-]*`.
+/// Validates a single path segment.
+///
+/// Extends the reference rule `[A-Za-z0-9_][A-Za-z0-9_.\-]*` to also permit
+/// interior spaces, so concepts may live in files whose names contain spaces
+/// (e.g. `Quarterly Report.md` → segment `Quarterly Report`). A segment must
+/// still begin with an ASCII alphanumeric or `_`, and may not begin or end with
+/// a space (leading/trailing spaces do not survive most filesystems and break
+/// round-tripping).
 pub fn validate_segment(seg: &str) -> Result<(), ConceptIdError> {
     let mut chars = seg.chars();
     match chars.next() {
@@ -128,9 +134,12 @@ pub fn validate_segment(seg: &str) -> Result<(), ConceptIdError> {
         _ => return Err(ConceptIdError(format!("Invalid concept id segment: {seg:?}"))),
     }
     for c in chars {
-        if !(c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-') {
+        if !(c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-' || c == ' ') {
             return Err(ConceptIdError(format!("Invalid concept id segment: {seg:?}")));
         }
+    }
+    if seg.ends_with(' ') {
+        return Err(ConceptIdError(format!("Invalid concept id segment: {seg:?}")));
     }
     Ok(())
 }

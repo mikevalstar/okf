@@ -37,6 +37,22 @@ fn regenerate_groups_by_type_and_links_relative() {
 }
 
 #[test]
+fn regenerate_percent_encodes_spaces_in_links() {
+    let tmp = TempDir::new();
+    write_doc(&tmp, "reports/Quarterly Report.md", "Report", "Quarterly Report", "Q3 numbers.");
+
+    regenerate_indexes(tmp.path()).unwrap();
+
+    let reports_index = tmp.read("reports/index.md");
+    // The display title keeps the space; the link destination is encoded so the
+    // generated markdown stays valid.
+    assert!(
+        reports_index.contains("[Quarterly Report](Quarterly%20Report.md)"),
+        "{reports_index}"
+    );
+}
+
+#[test]
 fn regenerate_skips_empty_directories() {
     let tmp = TempDir::new();
     tmp.mkdir("empty_dir");
