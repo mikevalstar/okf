@@ -72,6 +72,34 @@ fn resolve_relative_link() {
 }
 
 #[test]
+fn resolve_link_with_percent_encoded_space() {
+    let source = ConceptId::parse("reports/summary").unwrap();
+    let link = Link {
+        text: "q report".into(),
+        target: "/reports/Quarterly%20Report.md".into(),
+        kind: LinkKind::Absolute,
+    };
+    assert_eq!(
+        link.resolve(&source),
+        Some(ConceptId::parse("reports/Quarterly Report").unwrap())
+    );
+}
+
+#[test]
+fn resolve_link_with_raw_space() {
+    let source = ConceptId::parse("reports/summary").unwrap();
+    let link = Link {
+        text: "q report".into(),
+        target: "./Quarterly Report.md".into(),
+        kind: LinkKind::Relative,
+    };
+    assert_eq!(
+        link.resolve(&source),
+        Some(ConceptId::parse("reports/Quarterly Report").unwrap())
+    );
+}
+
+#[test]
 fn protocol_relative_url_is_external() {
     assert_eq!(Link::classify("//cdn.example.com/x.js"), LinkKind::External);
 }

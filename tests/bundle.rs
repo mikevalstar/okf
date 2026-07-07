@@ -59,6 +59,47 @@ fn loads_all_concepts() {
 }
 
 #[test]
+fn loads_and_links_concepts_with_spaces_in_filenames() {
+    let tmp = TempDir::new();
+    tmp.write(
+        "reports/Quarterly Report.md",
+        "---\n\
+         type: Report\n\
+         title: Quarterly Report\n\
+         ---\n\n\
+         Builds on the [annual summary](/reports/Annual%20Summary.md).\n",
+    );
+    tmp.write(
+        "reports/Annual Summary.md",
+        "---\n\
+         type: Report\n\
+         title: Annual Summary\n\
+         ---\n\n\
+         Rolls up each [quarterly report](./Quarterly Report.md).\n",
+    );
+
+    let bundle = Bundle::load(tmp.path()).unwrap();
+    assert_eq!(bundle.len(), 2);
+    assert!(bundle.parse_errors().is_empty());
+
+    let quarterly = ConceptId::parse("reports/Quarterly Report").unwrap();
+    let annual = ConceptId::parse("reports/Annual Summary").unwrap();
+    assert!(bundle.contains(&quarterly));
+    assert!(bundle.contains(&annual));
+
+    // A percent-encoded link resolves to the space-containing concept...
+    let from_q: Vec<_> = bundle.links_from(&quarterly).iter().map(|l| l.target.clone()).collect();
+    assert!(from_q.contains(&annual));
+    assert!(bundle.links_from(&quarterly).iter().all(|l| l.exists));
+
+    // ...and a raw-space relative link resolves too, producing a backlink.
+    let from_a: Vec<_> = bundle.links_from(&annual).iter().map(|l| l.target.clone()).collect();
+    assert!(from_a.contains(&quarterly));
+    assert!(bundle.backlinks(&quarterly).contains(&annual));
+    assert!(bundle.broken_links().is_empty());
+}
+
+#[test]
 fn resolves_cross_links_and_backlinks() {
     let tmp = appendix_a();
     let bundle = Bundle::load(tmp.path()).unwrap();
